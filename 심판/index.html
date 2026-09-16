@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f8f1" />
+    <title>심판 · 침범 카운터</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%238cc63f'/%3E%3Cpath d='M32 43c-13 0-21-9-22-25 8 4 15 8 22 8s14-4 22-8c-1 16-9 25-22 25Zm0 0v14' fill='none' stroke='%23172410' stroke-width='5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="csv.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="ginkgo" viewBox="0 0 24 24"><path d="M12 16C7 16 4 12.5 3.5 6.5c3 1.5 5.5 3 8.5 3s5.5-1.5 8.5-3C20 12.5 17 16 12 16Zm0 0v5" /></symbol>
+      <symbol id="speaker" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" /></symbol>
+      <symbol id="play" viewBox="0 0 24 24"><path d="m9 5 10 7-10 7V5Z" /></symbol>
+      <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+      <symbol id="chevron-left" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" /></symbol>
+      <symbol id="chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
+      <symbol id="chevrons-left" viewBox="0 0 24 24"><path d="m11 5-7 7 7 7m9-14-7 7 7 7" /></symbol>
+      <symbol id="chevrons-right" viewBox="0 0 24 24"><path d="m13 5 7 7-7 7M4 5l7 7-7 7" /></symbol>
+      <symbol id="settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6" /></symbol>
+      <symbol id="list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01" /></symbol>
+      <symbol id="expand" viewBox="0 0 24 24"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5" /></symbol>
+      <symbol id="undo" viewBox="0 0 24 24"><path d="m8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12" /></symbol>
+      <symbol id="download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" /></symbol>
+      <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" /></symbol>
+    </svg>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span id="brand-mark" class="brand-mark"><img id="brand-logo" class="brand-logo" alt="성균관대학교" hidden /><svg id="brand-glyph" class="icon" aria-hidden="true"><use href="#ginkgo" /></svg></span>
+          <span>심판</span>
+          <span class="brand-description">침범 카운터 · SKKU Automation LAB</span>
+        </div>
+        <span id="phase-label" class="phase-badge">경기 설정</span>
+      </header>
+
+      <main>
+        <section id="setup-view" class="setup-view" aria-labelledby="setup-title">
+          <div class="setup-card">
+            <h1 id="setup-title" tabindex="-1">경기 설정</h1>
+            <form id="setup-form" novalidate>
+              <fieldset class="mode-field">
+                <legend class="field-label">경기 구분</legend>
+                <div class="mode-options">
+                  <label class="mode-option"><input type="radio" name="mode" value="regular" checked /><span>일반주행</span></label>
+                  <label class="mode-option"><input type="radio" name="mode" value="tournament" /><span>토너먼트</span></label>
+                </div>
+                <p class="field-hint">결과와 CSV는 구분마다 따로 보관됩니다. 시작한 뒤에는 바꿀 수 없습니다.</p>
+              </fieldset>
+              <label class="field-label names-label" for="team-count">총 팀 수</label>
+              <div class="team-count-field"><input id="team-count" name="team-count" type="number" inputmode="numeric" min="1" max="100" step="1" required placeholder="예: 4" aria-describedby="team-count-hint team-count-error" /><span>팀</span></div>
+              <p id="team-count-hint" class="field-hint">1~100팀 · 주행 순서는 1번부터 팀 수까지, 차량 A·B가 두 순서를 동시에 판정합니다.</p>
+              <p id="team-count-error" class="field-error" role="alert" hidden></p>
+              <label class="field-label names-label" for="team-names">팀명 <span class="field-optional">(선택)</span></label>
+              <textarea id="team-names" name="team-names" class="names-input" rows="4" autocomplete="off" spellcheck="false" placeholder="한 줄에 한 팀, 위에서부터 1번" aria-describedby="team-names-hint team-names-error"></textarea>
+              <p id="team-names-hint" class="field-hint">비워 두면 번호만 표시합니다. 팀 수를 비우면 줄 수가 팀 수가 됩니다. 나중에 주행 목록에서도 고칠 수 있습니다.</p>
+              <p id="team-names-error" class="field-error" role="alert" hidden></p>
+              <button id="start-button" class="primary-button setup-start" type="submit">경기 시작</button>
+            </form>
+            <button id="back-to-result" class="secondary-button setup-back" type="button" hidden>이전 결과</button>
+            <div id="legacy-records" class="legacy-records" hidden><p>이전 기록 <strong id="legacy-count">0</strong>회</p><button id="legacy-download" class="secondary-button" type="button">이전 기록 CSV</button></div>
+          </div>
+        </section>
+
+        <section id="match-view" class="match-view" aria-labelledby="match-title" hidden>
+          <h1 id="match-title" class="visually-hidden" tabindex="-1">침범 판정</h1>
+          <div id="scoreboard" class="scoreboard">
+            <button id="audio-inline" class="text-button audio-inline" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#speaker" /></svg><span></span></button>
+            <div class="scoreboard-tools">
+              <button id="settings-button" class="text-button utility-button" type="button" aria-label="설정" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#settings" /></svg><span>설정</span></button>
+              <button id="list-button" class="text-button utility-button" type="button" aria-label="주행 목록"><svg class="icon" aria-hidden="true"><use href="#list" /></svg><span>주행 목록</span></button>
+              <button id="fullscreen-button" class="text-button utility-button" type="button" aria-label="전체 화면"><svg class="icon" aria-hidden="true"><use href="#expand" /></svg><span>전체 화면</span></button>
+            </div>
+
+            <div class="cars">
+              <article id="car-A" class="car" aria-labelledby="car-A-title">
+                <div class="car-heading"><h2 id="car-A-title"><span class="car-badge" aria-hidden="true">A</span>차량 A</h2><kbd class="car-key" aria-hidden="true">왼쪽 Shift</kbd></div>
+                <div class="order-row">
+                  <button id="prev-A" class="team-arrow" type="button" aria-label="차량 A 이전 주행 순서"><svg class="icon" aria-hidden="true"><use href="#chevron-left" /></svg></button>
+                  <label class="order-field"><span class="order-label">주행 순서</span><select id="order-A" class="order-select" aria-label="차량 A 주행 순서"></select></label>
+                  <button id="next-A" class="team-arrow" type="button" aria-label="차량 A 다음 주행 순서"><svg class="icon" aria-hidden="true"><use href="#chevron-right" /></svg></button>
+                </div>
+                <input id="name-A" class="team-name-input" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="팀명 입력" title="팀명을 입력하고 Enter" aria-label="차량 A 팀명" />
+                <p id="score-label-A" class="score-label">침범 횟수</p>
+                <output id="count-A" class="count" aria-labelledby="car-A-title score-label-A" aria-live="off">0</output>
+                <button id="record-A" class="record-button" type="button" aria-keyshortcuts="Shift"><span>침범 <span class="record-plus">+1</span></span><kbd aria-hidden="true">왼쪽 Shift</kbd></button>
+              </article>
+
+              <article id="car-B" class="car" aria-labelledby="car-B-title">
+                <div class="car-heading"><h2 id="car-B-title"><span class="car-badge" aria-hidden="true">B</span>차량 B</h2><kbd class="car-key" aria-hidden="true">오른쪽 Shift</kbd></div>
+                <div class="order-row">
+                  <button id="prev-B" class="team-arrow" type="button" aria-label="차량 B 이전 주행 순서"><svg class="icon" aria-hidden="true"><use href="#chevron-left" /></svg></button>
+                  <label class="order-field"><span class="order-label">주행 순서</span><select id="order-B" class="order-select" aria-label="차량 B 주행 순서"></select></label>
+                  <button id="next-B" class="team-arrow" type="button" aria-label="차량 B 다음 주행 순서"><svg class="icon" aria-hidden="true"><use href="#chevron-right" /></svg></button>
+                </div>
+                <input id="name-B" class="team-name-input" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="팀명 입력" title="팀명을 입력하고 Enter" aria-label="차량 B 팀명" />
+                <p id="score-label-B" class="score-label">침범 횟수</p>
+                <output id="count-B" class="count" aria-labelledby="car-B-title score-label-B" aria-live="off">0</output>
+                <button id="record-B" class="record-button" type="button" aria-keyshortcuts="Shift"><span>침범 <span class="record-plus">+1</span></span><kbd aria-hidden="true">오른쪽 Shift</kbd></button>
+              </article>
+            </div>
+
+            <div class="run-navigation">
+              <button id="prev-run" class="secondary-button run-button" type="button" aria-keyshortcuts="ArrowLeft"><svg class="icon" aria-hidden="true"><use href="#chevrons-left" /></svg><span>이전 주행</span></button>
+              <p class="team-progress"><span id="match-mode" class="mode-badge">일반주행</span> · 총 <span id="match-team-count">0</span>팀<span id="same-order" class="same-order" hidden> · 두 차량이 같은 주행 순서입니다</span></p>
+              <button id="next-run" class="secondary-button run-button" type="button" aria-keyshortcuts="ArrowRight"><span>다음 주행</span><svg class="icon" aria-hidden="true"><use href="#chevrons-right" /></svg></button>
+            </div>
+          </div>
+          <div class="counter-actions">
+            <button id="undo-button" class="secondary-button undo-button" type="button" aria-keyshortcuts="Backspace" disabled><svg class="icon" aria-hidden="true"><use href="#undo" /></svg><span>판정 취소</span><kbd aria-hidden="true">Backspace</kbd></button>
+            <p id="screen-status" class="screen-status" role="status"></p>
+            <button id="show-results-button" class="secondary-button results-button" type="button"><span>결과 보기</span><svg class="icon" aria-hidden="true"><use href="#chevron-right" /></svg></button>
+          </div>
+        </section>
+
+        <section id="list-view" class="list-view" aria-labelledby="list-title" hidden>
+          <div class="page-heading"><div><h1 id="list-title" tabindex="-1">주행 목록</h1><p class="result-team-meta"><span id="list-mode" class="mode-badge">일반주행</span> · 총 <strong id="list-team-count">0</strong>팀 · 침범 횟수 확인과 정정</p></div><button id="list-back" class="text-button" type="button">판정으로 돌아가기</button></div>
+          <div class="result-card">
+            <table class="result-table list-table"><caption class="visually-hidden">주행 순서별 침범 횟수와 정정</caption><thead><tr><th scope="col">주행 순서</th><th scope="col">팀명</th><th scope="col">침범 횟수</th><th scope="col">차량</th><th scope="col">정정</th></tr></thead><tbody id="list-rows"></tbody></table>
+            <p id="list-status" class="list-status" role="status"></p>
+            <p class="list-hint">팀명은 칸을 벗어나면 저장됩니다(Enter로 다음 칸). 정정은 기록에 “정정”으로 남고, −1은 그 순서의 마지막 판정을 지웁니다.</p>
+            <details id="names-bulk" class="names-bulk">
+              <summary>팀명 한꺼번에 입력</summary>
+              <textarea id="bulk-names" class="names-input" rows="6" autocomplete="off" spellcheck="false" aria-label="팀명 목록, 한 줄에 한 팀, 위에서부터 1번" placeholder="한 줄에 한 팀, 위에서부터 1번"></textarea>
+              <div class="names-bulk-actions"><p class="field-hint">위에서부터 1번. 빈 줄은 팀명 없음, 팀 수보다 많은 줄은 무시합니다.</p><button id="apply-names" class="secondary-button" type="button">적용</button></div>
+            </details>
+          </div>
+        </section>
+
+        <section id="result-view" class="result-view" aria-labelledby="result-title" hidden>
+          <div class="page-heading"><div><h1 id="result-title" tabindex="-1">경기 결과</h1><p class="result-team-meta"><span id="result-mode" class="mode-badge">일반주행</span> · 총 <strong id="result-team-count">0</strong>팀</p></div><button id="new-match-button" class="text-button" type="button">새 경기</button></div>
+          <div class="result-tabs" role="tablist" aria-label="경기 구분">
+            <button id="tab-regular" class="result-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="result-card">일반주행</button>
+            <button id="tab-tournament" class="result-tab" type="button" role="tab" aria-selected="false" aria-controls="result-card">토너먼트</button>
+          </div>
+          <div id="result-rounds" class="result-rounds" aria-label="라운드" hidden></div>
+          <div id="result-card" class="result-card" role="tabpanel">
+            <p id="result-empty" class="result-empty" hidden><strong id="result-empty-mode">토너먼트</strong> 결과가 아직 없습니다. 경기 설정에서 구분을 고르고 <strong>결과 보기</strong>까지 마치면 여기에 남습니다.</p>
+            <div id="result-body">
+            <p id="bracket-summary" class="bracket-summary" hidden><strong id="bracket-round">8강</strong> · <span id="bracket-order-no">1</span>라운드 · <span id="bracket-pairs">4</span>개 대진 · 대진마다 진출 팀을 고르면 다음 라운드를 짤 수 있습니다</p>
+            <dl class="result-times"><div><dt>경기 시작</dt><dd><time id="result-started"></time></dd></div><div><dt>집계 시각</dt><dd><time id="result-ended"></time></dd></div></dl>
+            <ol id="result-bracket" class="bracket" hidden></ol>
+            <table id="result-table" class="result-table"><caption class="visually-hidden">주행 순서별 침범 횟수</caption><thead><tr><th scope="col">주행 순서</th><th scope="col" class="name-col">팀명</th><th scope="col">침범 횟수</th></tr></thead><tbody id="result-rows"></tbody></table>
+            <div id="next-round" class="next-round" hidden>
+              <div class="next-round-text"><p class="next-round-title">다음 라운드 · <strong id="next-round-label">4강</strong></p><p class="field-hint">진출 <span id="next-round-count">4</span>팀 <span id="next-round-teams" hidden></span></p><p id="next-round-hint" class="field-hint next-round-hint" hidden>모든 대진에서 진출 팀을 골라야 시작할 수 있습니다.</p></div>
+              <button id="next-round-button" class="primary-button" type="button">4강 시작</button>
+            </div>
+            <p id="champion" class="champion" hidden>우승 <strong id="champion-name"></strong></p>
+            <div class="result-download"><button id="download-button" class="primary-button" type="button"><svg class="icon" aria-hidden="true"><use href="#download" /></svg>결과 다운로드 (.csv)</button><button id="download-all" class="secondary-button" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#download" /></svg>토너먼트 전체 CSV</button><p id="csv-status" role="status"></p></div>
+            </div>
+          </div>
+          <div class="result-actions">
+            <button id="resume-button" class="secondary-button resume-button" type="button"><svg class="icon" aria-hidden="true"><use href="#chevron-left" /></svg>판정으로 돌아가기</button>
+            <button id="result-list-button" class="secondary-button resume-button" type="button"><svg class="icon" aria-hidden="true"><use href="#list" /></svg>목록에서 정정</button>
+          </div>
+        </section>
+
+        <footer class="page-footer">
+          <span id="storage-status"><svg class="icon" aria-hidden="true"><use href="#check" /></svg><span id="storage-status-text">이 브라우저에 자동 저장</span></span>
+          <p class="credit">All rights reversed SKKU Automation LAB, Especially on HH.Park</p>
+        </footer>
+      </main>
+    </div>
+
+    <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+      <div class="settings-heading"><h2 id="settings-title">설정</h2><button id="close-settings" class="icon-button" type="button" aria-label="설정 닫기" autofocus><svg class="icon" aria-hidden="true"><use href="#close" /></svg></button></div>
+      <section class="audio-card" aria-labelledby="audio-title">
+        <div class="audio-heading"><h3 id="audio-title"><svg class="icon" aria-hidden="true"><use href="#speaker" /></svg>음성 안내</h3><button class="switch" id="sound-toggle" type="button" role="switch" aria-checked="true" aria-label="음성 안내"><span></span></button></div>
+        <div class="voice-grid">
+          <div class="voice-picker"><label for="voice-A"><span class="car-badge" aria-hidden="true">A</span>차량 A 목소리</label><select id="voice-A"><option value="female">부드러운 여성</option><option value="male">또렷한 남성</option><option value="original">기존 음성</option></select><button class="preview-button secondary-button" id="preview-A" type="button"><svg class="icon" aria-hidden="true"><use href="#play" /></svg>미리 듣기</button></div>
+          <div class="voice-picker"><label for="voice-B"><span class="car-badge" aria-hidden="true">B</span>차량 B 목소리</label><select id="voice-B"><option value="female">부드러운 여성</option><option value="male">또렷한 남성</option><option value="original">기존 음성</option></select><button class="preview-button secondary-button" id="preview-B" type="button"><svg class="icon" aria-hidden="true"><use href="#play" /></svg>미리 듣기</button></div>
+        </div>
+        <div class="volume-heading"><label for="volume">음량</label><output id="volume-value" for="volume">80%</output></div>
+        <input id="volume" type="range" min="10" max="100" step="10" value="80" aria-label="음성 안내 음량" />
+        <div class="name-speech"><div><p class="name-speech-title">팀명 읽기</p><p class="field-hint">“침범” 소리 뒤에 그 팀의 이름을 브라우저 음성으로 읽습니다. 팀명이 없으면 읽지 않습니다.</p></div><button class="switch" id="name-toggle" type="button" role="switch" aria-checked="true" aria-label="팀명 읽기"><span></span></button></div>
+        <p class="audio-status" id="audio-status" role="status"><span class="status-dot"></span><span id="audio-status-text">음성 켜짐</span></p>
+        <details id="audio-diag" class="audio-diag">
+          <summary>음성 진단 · 소리가 안 날 때</summary>
+          <p class="field-hint">음성 테스트를 누르고 소리가 났는지, 아래 진단 내용을 복사해 알려 주세요.</p>
+          <div class="diag-buttons"><button id="test-voice" class="secondary-button" type="button">음성 테스트</button></div>
+          <pre id="audio-diag-text" class="diag-text"></pre>
+          <button id="copy-diag" class="text-button" type="button">진단 내용 복사</button>
+        </details>
+      </section>
+      <section class="history-card" aria-labelledby="history-title">
+        <div class="history-heading"><h3 id="history-title">최근 판정</h3><span>최근 5건 · 모든 차량</span></div>
+        <p id="empty-history" class="empty-history">기록 없음</p>
+        <ol id="history" class="history-list" aria-label="최근 침범 판정 기록" hidden></ol>
+      </section>
+      <div class="settings-bottom"><p class="settings-meta">경기 시작 <time id="match-started"></time></p><button id="reset-button" class="text-button reset-button" type="button" disabled>전체 기록 초기화</button></div>
+    </dialog>
+    <dialog id="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description"><form id="reset-form" method="dialog"><h2 id="reset-title">판정 기록을 초기화할까요?</h2><p id="reset-description">현재 경기의 모든 주행 순서 판정 기록이 삭제됩니다. 삭제한 기록은 되돌릴 수 없습니다.</p><div class="dialog-actions"><button class="secondary-button" value="cancel" autofocus>취소</button><button id="confirm-reset" class="primary-button" value="confirm">기록 초기화</button></div></form></dialog>
+    <p id="announcement" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
+  </body>
+</html>
