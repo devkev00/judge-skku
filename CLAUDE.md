@@ -18,18 +18,28 @@ text, the README, and the CSV headers are Korean and should stay Korean.
 There is no build step, package manager, test suite, or linter. Vanilla HTML/CSS/JS, Python stdlib only.
 
 - Run locally: open `심판/index.html` directly in a browser (works from `file://`).
-- Serve for sharing (loopback only, allowlisted files):
-  `cd 심판 && python3 share_server.py --port 8766` (needs Python ≥ 3.9 for `Path.is_relative_to`).
-  In production both the server and a Cloudflare Quick Tunnel (`~/.local/bin/cloudflared`) run as
-  systemd user services `referee-share-server` / `referee-share-tunnel` (linger enabled, so they
-  survive reboots and restart on failure). `bash 심판/share_status.sh` prints their state and the
-  current `trycloudflare.com` URL, which changes on every tunnel restart or reboot; after any change
-  put the new URL in the README's 임시 공유 section. Restarting only the server unit keeps the URL
-  (the tunnel unit uses `Wants=`, not `Requires=`, for exactly this reason); never restart the
-  tunnel unit casually, since users hold the old link. The server reads `심판/` live, so edits go public
-  on the next reload; write files in quick succession. Do not query a freshly issued tunnel hostname
+- Deploy (production): the public app is **https://judge-skku.p-e.kr**, served by GitHub Pages from
+  the public repo `devkev00/judge-skku`. This directory is its git checkout; remote `origin` is the
+  SSH URL `git@github.com:devkev00/judge-skku.git`. `.github/workflows/pages.yml` uploads `심판/`
+  as-is on every push to `main`, live in about a minute; verify with `gh run list --limit 1` and a
+  `curl` of the domain. Push over SSH only: the `gh` OAuth token lacks the `workflow` scope, so an
+  HTTPS push of any commit touching the workflow file is rejected. The domain is a free
+  내도메인.한국 subdomain whose only record is a CNAME to `devkev00.github.io`; GitHub provisions the
+  certificate and HTTPS is enforced (`gh api repos/devkev00/judge-skku/pages` shows the state).
+  Pages serves every file in `심판/` (README.md and share_server.py included), and `.nojekyll`
+  there keeps GitHub from processing anything.
+- Backup share (old path, still enabled): `cd 심판 && python3 share_server.py --port 8766`
+  (loopback only, allowlisted files, Python ≥ 3.9 for `Path.is_relative_to`) plus a Cloudflare Quick
+  Tunnel (`~/.local/bin/cloudflared`) run as systemd user services `referee-share-server` /
+  `referee-share-tunnel` (linger enabled, restart on failure). `bash 심판/share_status.sh` prints
+  their state and the current `trycloudflare.com` URL, which changes on every tunnel restart or
+  reboot; if that URL is handed out, put it in the README's 예비 subsection. Restarting only the
+  server unit keeps the URL (the tunnel unit uses `Wants=`, not `Requires=`); never restart the
+  tunnel unit casually. The server reads `심판/` live. Do not query a freshly issued tunnel hostname
   through the local resolver until public DNS has it (check via dns.google/resolve or
-  `curl --resolve`): the campus DNS caches the negative answer for minutes.
+  `curl --resolve`): the campus DNS caches the negative answer for minutes. Every "server is down"
+  report so far was a stale URL in someone's hands; compare the README with `share_status.sh --url`
+  before touching the units.
 - The system `node` is v12 and cannot parse `?.` / `??`, so `node --check` is useless here. Verify in
   a browser instead. Headless Chrome is installed: serve a copy of the folder with
   `python3 -m http.server`, drive `index.html` from a harness page in an iframe, and use
@@ -162,7 +172,7 @@ is verbatim user-supplied text; do not "fix" its wording.
 Serves only the paths listed in `PUBLIC_FILES` (explicit content types, `no-cache`, `nosniff`) and
 binds `127.0.0.1`. It honours single byte ranges (206, `Accept-Ranges`), which Safari/iOS require
 for media; keep that when touching the handler. Adding any new asset or script to the app requires adding it to that allowlist or
-it will 404 when shared.
+it will 404 on the backup tunnel share (GitHub Pages serves everything in the folder).
 
 ## Documentation
 `심판/README.md` is the end-user manual and the handover document (인수인계용). Any change to shortcuts,

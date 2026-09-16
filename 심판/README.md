@@ -128,6 +128,8 @@ Web Audio API는 쓰지 않습니다. 데스크톱 Chrome에서 오류 없이 �
 - `csv.js`: CSV 생성과 다운로드 (`window.RefereeCsv`)
 - `assets/`: 한국어 음성 파일 3개 (+ 선택: 성대 마크)
 - `share_server.py`: 공유용 정적 파일 서버 (허용 목록 방식, Range 요청 206 지원)
+- `.nojekyll`: GitHub Pages가 파일을 가공하지 않고 그대로 내보내게 하는 빈 파일
+- (저장소 루트) `.github/workflows/pages.yml`: `main`에 push하면 이 폴더를 GitHub Pages로 배포하는 워크플로
 
 ## 저장 구조 (localStorage)
 
@@ -143,23 +145,51 @@ Web Audio API는 쓰지 않습니다. 데스크톱 Chrome에서 오류 없이 �
 
 저장 형식을 또 바꾸면 키 번호를 올리고, 이전 키를 같은 방식으로 읽어 옮기세요.
 
-## 임시 공유
+## 공유 주소
 
-공유 주소: https://tube-significant-film-was.trycloudflare.com (2026-09-13 22:37 재부팅 후 발급, 2026-09-17 00:40 확인)
+고정 주소: **https://judge-skku.p-e.kr** (2026-09-17 개통)
 
 이 주소를 전달하면 다른 사람도 프로그램을 사용할 수 있습니다. 횟수와 기록은 접속한 사람의 브라우저마다 따로 저장되며, 서로 동기화되지 않습니다.
+
+주소는 바뀌지 않으며 이 PC가 꺼져 있어도 열립니다. 파일은 GitHub Pages가 제공하고(공개 저장소 `devkev00/judge-skku`), 도메인은 내도메인.한국에서 받은 무료 서브도메인 `judge-skku.p-e.kr`을 별칭(CNAME)으로 `devkev00.github.io`에 연결한 것입니다. HTTPS 인증서는 GitHub가 자동으로 발급·갱신하고, http로 들어와도 https로 넘깁니다.
+
+### 수정 사항 반영 (배포)
+
+이 PC의 `~/dev/judge`가 git 저장소입니다. `main`에 push하면 GitHub Actions(`.github/workflows/pages.yml`)가 `심판/` 폴더를 그대로 올립니다. 보통 1분 안에 반영되며, 열어 둔 브라우저는 새로고침해야 합니다.
+
+```bash
+cd ~/dev/judge
+git add -A && git commit -m "수정 내용"
+git push                      # 원격은 SSH: git@github.com:devkev00/judge-skku.git
+gh run list --limit 1         # 배포 성공(success) 확인
+```
+
+- gh 로그인 토큰에는 `workflow` 권한이 없어 HTTPS 원격으로는 워크플로 파일이 든 커밋을 밀 수 없습니다. 그래서 원격을 SSH로 잡았고, 이 PC의 SSH 키가 GitHub 계정 devkev00에 등록돼 있습니다.
+- 공개 저장소이므로 비밀이 될 내용은 이 폴더에 넣지 마세요. 폴더의 모든 파일이 주소 아래로 공개됩니다.
+
+### 도메인 관리
+
+- 내도메인.한국 로그인 → 도메인 관리 → `judge-skku.p-e.kr` 수정 → 고급설정(DNS)의 **별칭(CNAME)** 체크. 왼쪽 호스트 칸은 비워 두고, 오른쪽 값 칸에 `devkev00.github.io`를 넣습니다. 웹포워딩·A·AAAA 등 다른 항목은 같이 켜지 않습니다.
+- 저장 후 반영까지 몇 분 걸립니다. 확인: `dig @1.ns.dnsze.com judge-skku.p-e.kr CNAME`
+- 무료 서브도메인이므로 내도메인.한국의 유효기간·연장 안내를 확인해 두세요. 도메인이 끊기면 저장소 Settings → Pages에서 사용자 도메인을 지우면 https://devkev00.github.io/judge-skku/ 로 열립니다.
+
+### 예비: 이 PC에서 직접 공유 (임시 주소)
+
+고정 주소가 안 될 때를 대비해 이전 방식(이 PC의 공유 서버 + Cloudflare 임시 터널)도 그대로 켜 두었습니다. 필요 없으면 `systemctl --user disable --now referee-share-tunnel referee-share-server`로 끄면 됩니다.
+
+임시 주소: https://tube-significant-film-was.trycloudflare.com (2026-09-13 22:37 재부팅 후 발급, 2026-09-17 확인)
 
 이 PC가 켜져 있고 인터넷이 연결된 동안 사용할 수 있는 임시 주소입니다. **PC를 재부팅하면 서버와 터널은 자동으로 다시 뜨지만 주소가 새로 발급됩니다.** 새 주소는 아래 명령으로 확인해서 다시 전달하세요. 발급 직후 1~2분은 DNS가 퍼지지 않아 접속이 안 될 수 있습니다.
 
 ```bash
 cd ~/dev/judge/심판
-bash share_status.sh          # 서비스 상태와 현재 공유 주소
+bash share_status.sh          # 서비스 상태와 현재 임시 주소
 bash share_status.sh --url    # 주소만
 ```
 
-### 구성
+#### 구성
 
-- `share_server.py`: 공유에 필요한 화면·스타일·동작·음원 파일만 제공하는 서버 (`127.0.0.1:8766`, Python 3.9 이상, Range 요청 206 지원). 이 폴더를 그대로 읽으므로 파일을 고치면 새로고침만으로 공유 주소에 반영됩니다.
+- `share_server.py`: 공유에 필요한 화면·스타일·동작·음원 파일만 제공하는 서버 (`127.0.0.1:8766`, Python 3.9 이상, Range 요청 206 지원). 이 폴더를 그대로 읽으므로 파일을 고치면 새로고침만으로 임시 주소에 반영됩니다.
 - Cloudflare Quick Tunnel(`~/.local/bin/cloudflared`)이 그 포트를 임시 주소로 공개합니다. 계정이나 설정 없이 쓰는 대신 주소가 매번 바뀝니다.
 - 둘 다 systemd 사용자 서비스로 등록되어 로그인 없이도(linger) 부팅 시 자동 시작하고, 죽으면 다시 뜹니다.
   - 유닛 파일: `~/.config/systemd/user/referee-share-server.service`, `referee-share-tunnel.service`
@@ -168,7 +198,7 @@ bash share_status.sh --url    # 주소만
   - 터널 재시작(주소 바뀜): `systemctl --user restart referee-share-tunnel`
   - 끄기: `systemctl --user stop referee-share-tunnel referee-share-server`, 자동 시작 해제: `systemctl --user disable ...`
 
-### 접속이 안 될 때
+#### 접속이 안 될 때 (임시 주소)
 
 1. `bash share_status.sh`로 두 서비스가 `active`인지, 주소가 바뀌지 않았는지 확인합니다.
 2. 주소가 방금 발급됐다면 1~2분 기다립니다. 발급 직후에 조회하면 캠퍼스 DNS가 “없음” 응답을 30분(SOA 최소 TTL 1800초) 동안 기억해 그 주소가 캠퍼스망에서 늦게 열립니다. 새 주소는 `share_status.sh`로 확인만 하고, 브라우저로 여는 것은 1~2분 뒤에 하세요. 급하면 폰 데이터망 등 다른 네트워크로 먼저 확인합니다.
@@ -176,7 +206,8 @@ bash share_status.sh --url    # 주소만
 
 ## 개발 기록
 
-- **2026-09-17** “서버가 끊긴 것 같다” 보고 확인. 서버·터널 서비스는 9월 13일 22:36 재부팅 이후 계속 정상이었고(터널 요청 오류 0건), 그때 새로 발급된 주소가 이 문서에 반영되지 않아 옛 주소(9월 11일 발급, 이미 DNS에서 사라짐)로는 접속이 안 된 것이었습니다. 서비스는 건드리지 않고 위 임시 공유 절의 주소만 현재 것으로 갱신했습니다. 재부팅 뒤에는 `bash share_status.sh --url`로 주소를 다시 확인해 전달해야 합니다.
+- **2026-09-17 (2)** 공유 주소를 고정 도메인 **https://judge-skku.p-e.kr** 로 전환. 앱이 정적 파일뿐이라 이 PC의 서버 대신 GitHub Pages(공개 저장소 `devkev00/judge-skku`, `main` push 시 자동 배포)에 올리고, 내도메인.한국 무료 서브도메인을 CNAME으로 연결했습니다. 재부팅이나 PC 꺼짐과 무관하게 같은 주소로 열리고 HTTPS가 강제됩니다. 새 주소에서 파일 7개가 로컬과 동일한지, Range 요청(206), 브라우저 콘솔 오류 없음을 확인했습니다. 이전 방식(공유 서버 + 임시 터널)은 예비로 그대로 켜 두었습니다. 개발 폴더를 git 저장소로 만들었고 원격은 SSH입니다(gh 토큰에 workflow 권한이 없음). 자세한 절차는 위 공유 주소 절 참고.
+- **2026-09-17** “서버가 끊긴 것 같다” 보고 확인. 서버·터널 서비스는 9월 13일 22:36 재부팅 이후 계속 정상이었고(터널 요청 오류 0건), 그때 새로 발급된 주소가 이 문서에 반영되지 않아 옛 주소(9월 11일 발급, 이미 DNS에서 사라짐)로는 접속이 안 된 것이었습니다. 서비스는 건드리지 않고 당시 임시 공유 절의 주소만 현재 것으로 갱신했습니다. 재부팅 뒤에는 `bash share_status.sh --url`로 주소를 다시 확인해 전달해야 합니다.
 - **2026-09-13 (2)** 토너먼트를 라운드로 이어서 치를 수 있게 함. 대진마다 **진출 팀 선택**(침범 적은 쪽 자동 제안, 동률은 비움)을 넣고, 다 고르면 **다음 라운드 시작** 버튼으로 진출 팀만 데리고 새 라운드를 짜도록 했습니다(10강 → 5강 → 3강 → 결승, 홀수면 부전승). 결승까지 마치면 우승 팀을 표시합니다. 라운드 이름은 팀 수를 그대로 써 `n강`으로 바꿨습니다. CSV에 **대진·진출** 열을 추가하고 **토너먼트 전체 CSV** 내보내기를 넣었습니다. 함께 고친 것: 취소한 판정의 음원이 4초 뒤 팀명을 읽던 문제.
 - **2026-09-13** 토너먼트 결과 가독성 개선. 팀 수로 라운드(8강·4강·결승)를 정해 **라운드마다 따로 보관**하고, 결과 화면에 라운드 칩을 추가했습니다. 토너먼트 결과는 표 대신 **대진 카드**(두 팀을 나란히, 침범 적음·동률 표시)로 보여 주고, CSV의 경기 구분과 파일명에도 라운드를 넣었습니다. 저장 키는 `referee.matches.v5`로 올리고 v4를 자동으로 옮깁니다.
 - **2026-09-12** 경기 구분·팀명 음성·키 리맵핑.
