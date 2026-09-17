@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const HEADERS = ["경기 구분", "구분", "총 팀 수", "주행 순서", "팀명", "대진", "진출", "차량", "침범 횟수", "판정 번호", "판정 시각", "경기 시작", "집계 시각"];
+  const HEADERS = ["경기 구분", "구분", "총 팀 수", "주행 순서", "팀명", "대진", "진출", "추월", "차량", "침범 횟수", "판정 번호", "판정 시각", "경기 시작", "집계 시각"];
   const MODES = { regular: "일반주행", tournament: "토너먼트" };
   // 토너먼트는 라운드까지 적는다. 10팀이면 “토너먼트 10강”, 2팀이면 “토너먼트 결승”.
   function modeText(match) {
@@ -53,6 +53,15 @@
     return winner === team ? "진출" : "탈락";
   }
 
+  // 토너먼트에서 추월이 있던 대진: 따라잡은 팀은 “추월”, 상대는 “추월당함”(완주 실패). 그 밖에는 빈칸.
+  function overtakeText(match, team) {
+    if (match.mode !== "tournament" || team === null) return "";
+    const overtakes = Array.isArray(match.overtakes) ? match.overtakes : [];
+    const overtaker = overtakes[Math.ceil(team / 2) - 1];
+    if (overtaker === undefined || overtaker === null) return "";
+    return overtaker === team ? "추월" : "추월당함";
+  }
+
   function rowsOf(match) {
     if (!match || !Number.isSafeInteger(match.teamCount) || match.teamCount < 0 || !Array.isArray(match.events)) {
       throw new TypeError("유효하지 않은 경기 기록입니다.");
@@ -83,16 +92,16 @@
       totals.set(event.team, cumulativeCount);
       detailRows.push([
         mode, event.manual ? "정정" : "판정", match.teamCount, orderText(event.team), nameOf(event.team),
-        pairOf(event.team), "", event.car ?? "", cumulativeCount, index + 1, timestamp, startedAt, endedAt,
+        pairOf(event.team), "", "", event.car ?? "", cumulativeCount, index + 1, timestamp, startedAt, endedAt,
       ]);
     }
 
     const rows = [];
     for (let team = 1; team <= match.teamCount; team += 1) {
-      rows.push([mode, "팀별 집계", match.teamCount, orderText(team), nameOf(team), pairOf(team), advancement(match, team), "", totals.get(team) || 0, "", "", startedAt, endedAt]);
+      rows.push([mode, "팀별 집계", match.teamCount, orderText(team), nameOf(team), pairOf(team), advancement(match, team), overtakeText(match, team), "", totals.get(team) || 0, "", "", startedAt, endedAt]);
     }
     if (totals.has(null) || match.teamCount === 0) {
-      rows.push([mode, "팀별 집계", match.teamCount, "미지정", "", "", "", "", totals.get(null) || 0, "", "", startedAt, endedAt]);
+      rows.push([mode, "팀별 집계", match.teamCount, "미지정", "", "", "", "", "", totals.get(null) || 0, "", "", startedAt, endedAt]);
     }
     return rows.concat(detailRows);
   }

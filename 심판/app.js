@@ -77,6 +77,30 @@
     if (!Number.isInteger(target.round) || target.round < 1) target.round = 1;
   }
 
+  // 추월 표시. 대진마다 추월한 주행 순서(없으면 null). 본선(토너먼트)에서만 쓴다.
+  // 규정 4.1.3·5.1 b4: 따라잡힌 차량은 완주 실패, 따라잡은 차량이 그 대진의 승자.
+  function normalizeOvertakes(target) {
+    if (target.mode !== "tournament") {
+      delete target.overtakes;
+      return;
+    }
+    const saved = Array.isArray(target.overtakes) ? target.overtakes : [];
+    target.overtakes = Array.from({ length: pairCount(target.teamCount) }, (_, index) => {
+      const { first, second } = pairOrders(target, index);
+      if (second === null) return null;
+      return saved[index] === first || saved[index] === second ? saved[index] : null;
+    });
+  }
+
+  // 그 순서의 대진 상대. 없으면 null (부전승).
+  function partnerOf(target, order) {
+    const { first, second } = pairOrders(target, pairOf(order) - 1);
+    return order === first ? second : first;
+  }
+  // 그 순서가 속한 대진에서 추월한 순서. 추월이 없거나 토너먼트가 아니면 null.
+  const overtakerOf = (target, order) => (target.mode === "tournament" && order !== null && Array.isArray(target.overtakes)
+    ? target.overtakes[pairOf(order) - 1] ?? null : null);
+
   // 팀 수로 라운드를 부른다. 10팀이면 10강, 5팀이면 5강, 2팀은 결승.
   function roundLabel(teamCount) {
     if (teamCount <= 1) return "우승";
@@ -124,6 +148,7 @@
       && (saved.teamNames === undefined || Array.isArray(saved.teamNames))
       && (saved.mode === undefined || isMode(saved.mode))
       && (saved.winners === undefined || Array.isArray(saved.winners))
+      && (saved.overtakes === undefined || Array.isArray(saved.overtakes))
       && Array.isArray(saved.events)
       && saved.events.every((event) => event && validOrder(event.team, saved.teamCount) && validTime(event.at)
         && (event.car === undefined || event.car === null || CARS.includes(event.car)));
@@ -142,6 +167,7 @@
     saved.events = saved.events.map(normalizeEvent);
     saved.teamNames = normalizeNames(saved.teamNames, saved.teamCount);
     normalizeWinners(saved);
+    normalizeOvertakes(saved);
     return saved;
   }
 
@@ -290,6 +316,30 @@
       : `차량 ${car}, ${teamLabel(order)} 침범 1회 추가, ${shortcut} 키`);
     $(`prev-${car}`).disabled = order !== null && order <= 1;
     $(`next-${car}`).disabled = order !== null && order >= match.teamCount;
+    renderOvertake(car, order);
+  }
+
+  // 추월 줄: 본선에서만 보인다. 누른 쪽은 버튼이 켜지고, 대진 상대 카드에는 “추월당함 · 완주 실패”가 뜬다.
+  function renderOvertake(car, order) {
+    const tournament = match.mode === "tournament";
+    const card = $(`car-${car}`);
+    $(`overtake-row-${car}`).hidden = !tournament;
+    const partner = tournament && order !== null ? partnerOf(match, order) : null;
+    const overtaker = tournament ? overtakerOf(match, order) : null;
+    const on = overtaker !== null && overtaker === order;
+    const overtaken = overtaker !== null && overtaker !== order;
+    const toggle = $(`overtake-${car}`);
+    toggle.disabled = !tournament || order === null || partner === null;
+    toggle.classList.toggle("is-on", on);
+    toggle.setAttribute("aria-pressed", String(on));
+    const who = order === null ? "빈 자리" : teamLabel(order);
+    toggle.title = order === null ? "빈 자리" : partner === null ? "상대 없음 (부전승)"
+      : on ? `${who} 추월 표시 지우기` : `${who}가 ${teamLabel(partner)}를 따라잡았을 때`;
+    toggle.setAttribute("aria-label", order === null ? `차량 ${car} 빈 자리` : partner === null ? `차량 ${car}, ${who} 상대 없음`
+      : on ? `차량 ${car}, ${who} 추월 표시 지우기` : `차량 ${car}, ${who}가 ${teamLabel(partner)}를 추월함`);
+    $(`overtaken-${car}`).hidden = !overtaken;
+    card.classList.toggle("is-overtaken", overtaken);
+    card.classList.toggle("is-overtaker", on);
   }
 
   // 두 차량이 짝을 이루는 기준 순서. A가 비어 있으면 B에서 거꾸로 계산한다.
@@ -408,15 +458,19 @@
   }
 
   // 결과 화면에서 지금 보고 있는 경기. 현재 경기가 그 자리면 현재 경기(정정이 바로 보이도록), 아니면 보관본.
-  // 아직 안 고른 대진만 침범이 적은 쪽으로 채워 둔다. 동률은 심판이 고르도록 비워 둔다.
+  // 아직 안 고른 대진만 채워 둔다: 추월이 있으면 추월한 팀, 아니면 침범이 적은 쪽. 동률은 심판이 고르도록 비워 둔다.
   function suggestWinners(target) {
     if (target.mode !== "tournament") return;
     const totals = totalsOf(target);
     for (let index = 0; index < target.winners.length; index += 1) {
       if (target.winners[index] !== null) continue;
       const { first, second } = pairOrders(target, index);
+      const overtaker = target.overtakes[index];
       if (second === null) {
         target.winners[index] = first;
+      } else if (overtaker !== null) {
+        // 추월이 있던 대진은 따라잡은 팀이 승자(규정 4.1.3).
+        target.winners[index] = overtaker;
       } else if (totals[first - 1] < totals[second - 1]) {
         target.winners[index] = first;
       } else if (totals[second - 1] < totals[first - 1]) {
@@ -448,10 +502,14 @@
       heading.append(title);
       const tie = second !== null && totals[first - 1] === totals[second - 1];
       const undecided = second !== null && shown.winners[Math.ceil(first / 2) - 1] === null;
-      if (tie || undecided) {
+      const overtaker = second === null ? null : overtakerOf(shown, first);
+      const noteText = overtaker !== null ? (undecided ? "추월 · 진출 팀 선택" : "추월")
+        : tie && undecided ? "침범 동률 · 진출 팀 선택" : tie ? "침범 동률" : undecided ? "진출 팀 선택" : "";
+      if (noteText) {
         const note = document.createElement("span");
         note.className = "bracket-note";
-        note.textContent = tie && undecided ? "침범 동률 · 진출 팀 선택" : tie ? "침범 동률" : "진출 팀 선택";
+        note.classList.toggle("is-overtake", overtaker !== null);
+        note.textContent = noteText;
         heading.append(note);
       }
       card.append(heading);
@@ -502,8 +560,13 @@
           row.append(state);
         }
         if (winner === order) row.classList.add("is-winner");
-        // 사실만 적는다: 침범이 적은 쪽에만 표시하고 승패는 적지 않는다.
-        if (second !== null && !tie && total === Math.min(totals[first - 1], totals[second - 1])) {
+        // 사실만 적는다. 추월이 있던 대진은 추월함·추월당함(완주 실패)만 적고 침범 비교는 생략한다.
+        if (overtaker !== null) {
+          const mark = document.createElement("span");
+          mark.className = `bracket-mark ${overtaker === order ? "is-overtake" : "is-overtaken"}`;
+          mark.textContent = overtaker === order ? "추월함" : "추월당함 · 완주 실패";
+          row.append(mark);
+        } else if (second !== null && !tie && total === Math.min(totals[first - 1], totals[second - 1])) {
           row.classList.add("is-lower");
           const mark = document.createElement("span");
           mark.className = "bracket-mark";
@@ -878,6 +941,27 @@
     $("record-A").focus();
   }
 
+  // 추월: 누른 차량의 순서가 대진 상대를 따라잡은 것으로 표시한다. 상대는 추월당함(완주 실패).
+  // 같은 버튼을 다시 누르면 지우고, 상대 카드의 버튼을 누르면 방향이 바뀐다.
+  // 규정 4.1.3에 따라 그 대진의 진출 팀도 추월한 팀으로 맞춰 둔다(결과 화면에서 바꿀 수 있다). 지우면 미정으로 돌아간다.
+  function toggleOvertake(car) {
+    if (!isRunning() || dialogOpen() || match.mode !== "tournament") return;
+    const order = slots[car];
+    if (!validOrder(order, match.teamCount)) return;
+    const partner = partnerOf(match, order);
+    if (partner === null) return;
+    const index = pairOf(order) - 1;
+    const on = match.overtakes[index] !== order;
+    match.overtakes[index] = on ? order : null;
+    match.winners[index] = on ? order : null;
+    renderRunning();
+    save();
+    $("announcement").textContent = on
+      ? `차량 ${car}, ${teamLabel(order)} 추월. ${teamLabel(partner)} 추월당함, 완주 실패`
+      : `${teamLabel(order)} 추월 표시 취소`;
+    $(`record-${car}`).focus();
+  }
+
   function setOrder(car, order) {
     if (!isRunning() || dialogOpen()) return;
     if (order !== null && !validOrder(order, match.teamCount)) return;
@@ -1010,6 +1094,7 @@
       events: [], teamNames: normalizeNames(names, teamCount),
     };
     normalizeWinners(match);
+    normalizeOvertakes(match);
     overlay = null;
     resultTab = mode;
     resultRound = teamCount;
@@ -1039,6 +1124,7 @@
       renderAudio();
       save();
     });
+    $(`overtake-${car}`).addEventListener("click", () => toggleOvertake(car));
     // 미리 듣기: 그 차량이 맡은 팀명이 있으면 실제 판정과 같게 들려준다.
     $(`preview-${car}`).addEventListener("click", () => {
       playVoice(car, match && slots[car] !== null ? teamName(slots[car]) : "");
@@ -1086,6 +1172,11 @@
     $("reset-dialog").close("confirm");
     if (!isRunning()) return;
     match.events = [];
+    if (match.mode === "tournament") {
+      match.overtakes.fill(null);
+      match.winners = [];
+      normalizeWinners(match);
+    }
     stopVoice();
     renderRunning();
     save();
@@ -1164,6 +1255,7 @@
       events: [], teamNames: normalizeNames(names, teamCount),
     };
     normalizeWinners(match);
+    normalizeOvertakes(match);
     overlay = null;
     resultTab = "tournament";
     resultRound = teamCount;

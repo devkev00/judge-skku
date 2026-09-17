@@ -408,3 +408,20 @@ dialog > form > p { font-size: 14px; color: var(--muted); line-height: 1.8; marg
   .page-footer { padding: 12px 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* 추월 표시 (본선). 누른 쪽 버튼이 켜지고 상대 카드에는 완주 실패 배지가 뜬다. */
+.overtake-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 460px; min-height: 42px; margin-top: 12px; }
+.overtake-button { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 8px 18px; border: 1px solid #dce1d5; border-radius: 30px; background: #fff; color: #6b7562; font-size: 15px; font-weight: 600; }
+.overtake-button:hover:not(:disabled):not(.is-on) { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-deep); }
+.overtake-button.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.overtake-button:disabled { opacity: .45; cursor: default; }
+.overtaken-badge { display: inline-block; padding: 8px 14px; border: 1px solid #f1d6ad; border-radius: 30px; background: #fff4e5; color: #b06a1c; font-size: 14px; font-weight: 700; }
+.car.is-overtaken { border-color: #f1d6ad; background: #fffaf3; }
+.car.is-overtaken .count { color: #b06a1c; }
+.bracket-note.is-overtake, .bracket-mark.is-overtake { color: var(--accent-deep); }
+.bracket-mark.is-overtaken { color: #b06a1c; }
+@media (max-width: 600px) {
+  .overtake-row { gap: 8px; margin-top: 8px; }
+  .overtake-button { min-height: 38px; padding: 6px 14px; font-size: 13px; }
+  .overtaken-badge { padding: 6px 10px; font-size: 12px; }
+}

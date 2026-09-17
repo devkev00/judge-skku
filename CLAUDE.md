@@ -84,6 +84,19 @@ state and DOM wiring and is the only consumer. Keep that order and that single g
   offered only while the shown round is the live `match`; archived rounds render static
   진출/탈락/부전승 badges. The download button exports the active round; `#download-all` exports every
   archived round in one file via `RefereeCsv.downloadAll()`.
+- Overtaking (rulebook 4.1.3 / 5.1 b4: the overtaken car is 완주 실패, the overtaker wins the pair):
+  `match.overtakes` holds, per pair, the driving order that overtook or `null`, normalized by
+  `normalizeOvertakes()` and present only for tournament matches (older v5 blobs without it load fine;
+  the key was not bumped). Each car card has an 추월함 toggle (`toggleOvertake`, mouse/touch only, no
+  shortcut on purpose, hidden in regular mode, disabled on a bye seat): pressing it marks that order as
+  the overtaker, shows 추월당함 · 완주 실패 on the partner's card, and also sets that pair's `winners`
+  entry to the overtaker; pressing again clears both (winner back to `null`); pressing the partner's
+  toggle flips the direction. `suggestWinners()` prefers the overtaker over the intrusion comparison,
+  `renderBracket()` shows 추월함 / 추월당함 · 완주 실패 marks instead of 침범 적음 for such pairs, and
+  전체 기록 초기화 clears overtakes and winners. Undo does not touch overtakes.
+- Rulebook gaps deliberately left out at the user's direction (2026-09-17): per-reason failure marking
+  (이탈/출발 실패/전진 불가/시간 초과), uncompleted-section penalties (30 s), and time-plus-penalty scoring.
+  A separate scorer computes those from the CSV. Do not add them unasked.
 - `slots = { A, B }` holds which driving order each car is on (`null` = 빈 자리, empty seat). Defaults
   to (1, 2). Pair navigation (`moveRun`, ← / →) moves both by 2 and re-pairs as (n, n+1); per-car
   arrows and the `<select>` change one car. `runBase()` derives the pair anchor from A, or B−1.
@@ -152,8 +165,8 @@ logged failures.
 ### CSV format (csv.js)
 Output is UTF-8 with BOM (`"\uFEFF"` escape, not a literal byte), CRLF line endings, filename
 `침범기록_<모드>_YYYYMMDD_HHMMSS.csv` from `endedAt`. Columns: 경기 구분, 구분, 총 팀 수, 주행 순서,
-팀명, 대진, 진출, 차량, 침범 횟수, 판정 번호, 판정 시각, 경기 시작, 집계 시각. 대진 is the pair number for
-every mode; 진출 is 진출/탈락/부전승/미정 on tournament 팀별 집계 rows only. The 경기 구분 cell and the
+팀명, 대진, 진출, 추월, 차량, 침범 횟수, 판정 번호, 판정 시각, 경기 시작, 집계 시각. 대진 is the pair number for
+every mode; 진출 is 진출/탈락/부전승/미정 and 추월 is 추월/추월당함 on tournament 팀별 집계 rows only. The 경기 구분 cell and the
 filename carry the round for tournaments ("토너먼트 10강"), so `csv.js` keeps its own copy of the mode
 labels and the round rule — update both when either changes. `rowsOf()` builds one match's rows and
 `buildAll()` concatenates several rounds under a single header for the tournament-wide export. Row order: header, one "팀별 집계" row per order (zero
