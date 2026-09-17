@@ -38,6 +38,8 @@
   let resultTab = "regular";
   // 토너먼트 탭에서 보고 있는 라운드. 그 라운드의 팀 수로 구분한다.
   let resultRound = 0;
+  // 초기화 확인 창이 지울 대상: "all"(전체) 또는 차량("A"/"B", 그 차량이 맡은 순서만).
+  let resetTarget = "all";
 
   const validTime = (value) => Number.isSafeInteger(value) && value >= 0 && value <= 8640000000000000;
   const validTeamCount = (value) => Number.isInteger(value) && value >= 1 && value <= MAX_TEAMS;
@@ -317,6 +319,7 @@
     $(`prev-${car}`).disabled = order !== null && order <= 1;
     $(`next-${car}`).disabled = order !== null && order >= match.teamCount;
     renderOvertake(car, order);
+    $(`reset-car-${car}`).disabled = order === null || (totals[order - 1] === 0 && overtakerOf(match, order) === null);
   }
 
   // 추월 줄: 본선에서만 보인다. 누른 쪽은 버튼이 켜지고, 대진 상대 카드에는 “추월당함 · 완주 실패”가 뜬다.
@@ -1160,17 +1163,65 @@
   $("next-run").addEventListener("click", () => moveRun(1));
   $("undo-button").addEventListener("click", undoLast);
 
-  $("reset-button").addEventListener("click", () => {
-    if (!isRunning() || match.events.length === 0) return;
+  // 초기화 확인 창. 전체(설정의 “전체 기록 초기화”)와 차량 카드의 “횟수 초기화”(재경기용)가 같은 창을 쓴다.
+  function openResetDialog(target) {
+    resetTarget = target;
+    if (target === "all") {
+      $("reset-title").textContent = "판정 기록을 초기화할까요?";
+      $("reset-description").textContent = "현재 경기의 모든 주행 순서 판정 기록이 삭제됩니다. 삭제한 기록은 되돌릴 수 없습니다.";
+    } else {
+      const order = slots[target];
+      const count = match.events.filter((event) => event.team === order).length;
+      const overtake = overtakerOf(match, order) !== null ? " 그 대진의 추월 표시도 지웁니다." : "";
+      $("reset-title").textContent = `${teamLabel(order)} 침범 횟수를 초기화할까요?`;
+      $("reset-description").textContent = `차량 ${target}가 맡은 ${teamLabel(order)}의 침범 기록 ${formatCount(count)}건이 삭제됩니다. 재경기 전에 쓰세요.${overtake} 삭제한 기록은 되돌릴 수 없습니다.`;
+    }
     $("settings-dialog").close();
     $("reset-dialog").returnValue = "";
     $("reset-dialog").showModal();
+  }
+
+  // 재경기: 그 차량이 맡은 주행 순서의 침범 기록만 지운다. 본선이면 그 대진의 추월 표시와 진출 선택도 되돌린다.
+  function resetOrder(car) {
+    const order = slots[car];
+    if (!validOrder(order, match.teamCount)) return;
+    const before = match.events.length;
+    match.events = match.events.filter((event) => event.team !== order);
+    let overtakeCleared = false;
+    if (match.mode === "tournament") {
+      const index = pairOf(order) - 1;
+      if (match.overtakes[index] !== null) {
+        match.overtakes[index] = null;
+        match.winners[index] = null;
+        overtakeCleared = true;
+      }
+    }
+    stopVoice();
+    renderRunning();
+    save();
+    $(`record-${car}`).focus();
+    $("announcement").textContent = `${teamLabel(order)} 침범 기록 ${formatCount(before - match.events.length)}건 삭제${overtakeCleared ? ", 추월 표시 지움" : ""}`;
+  }
+
+  $("reset-button").addEventListener("click", () => {
+    if (!isRunning() || match.events.length === 0) return;
+    openResetDialog("all");
   });
+  for (const car of CARS) {
+    $(`reset-car-${car}`).addEventListener("click", () => {
+      if (!isRunning() || dialogOpen() || slots[car] === null) return;
+      openResetDialog(car);
+    });
+  }
   $("reset-form").addEventListener("submit", (event) => {
     if (event.submitter?.value !== "confirm") return;
     event.preventDefault();
     $("reset-dialog").close("confirm");
     if (!isRunning()) return;
+    if (resetTarget !== "all") {
+      resetOrder(resetTarget);
+      return;
+    }
     match.events = [];
     if (match.mode === "tournament") {
       match.overtakes.fill(null);

@@ -94,6 +94,11 @@ state and DOM wiring and is the only consumer. Keep that order and that single g
   toggle flips the direction. `suggestWinners()` prefers the overtaker over the intrusion comparison,
   `renderBracket()` shows 추월함 / 추월당함 · 완주 실패 marks instead of 침범 적음 for such pairs, and
   전체 기록 초기화 clears overtakes and winners. Undo does not touch overtakes.
+- Re-runs: each car card has a 횟수 초기화 button (`#reset-car-A/B`, no shortcut, disabled when there is
+  nothing to clear). It opens the shared `#reset-dialog` through `openResetDialog(target)` (`resetTarget`
+  is `"all"` or a car) and on confirm `resetOrder(car)` drops that order's events and, in tournament,
+  that pair's overtake and winner. The settings dialog's 전체 기록 초기화 uses the same dialog with
+  target `"all"`.
 - Rulebook gaps deliberately left out at the user's direction (2026-09-17): per-reason failure marking
   (이탈/출발 실패/전진 불가/시간 초과), uncompleted-section penalties (30 s), and time-plus-penalty scoring.
   A separate scorer computes those from the CSV. Do not add them unasked.
